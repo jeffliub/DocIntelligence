@@ -34,7 +34,7 @@ def load_data_from_snowflake(_conn, query):
             df['TOTAL_AMOUNT'] = pd.to_numeric(df['TOTAL_AMOUNT'])
         return df
     except Exception as e:
-        st.error(f"数据加载失败：{e}")
+        st.error(f"Data loading failed: {e}")
         return pd.DataFrame()
     finally:
         cursor.close()
@@ -58,12 +58,12 @@ def upload_file_to_snowflake(_conn, file_path, stage_name="demo_stage", sub_path
 
         # 使用 put 命令上传文件
         put_command = f"PUT file://{file_path} {stage_path} AUTO_COMPRESS=FALSE"
-        print(f"上传命令：{put_command}")
+        print(f"The command to upload the file: {put_command}")
         cursor.execute(put_command)
-        st.success(f"文件 {os.path.basename(file_path)} 成功上传到 Snowflake 阶段 {stage_path}")
+        st.success(f"The file [{os.path.basename(file_path)}] has uploaded to {stage_path}")
 
     except Exception as e:
-        st.error(f"文件上传到 Snowflake 失败：{e}")
+        st.error(f"File uploading to Snowflake failed: {e}")
     finally:
         cursor.close()
 
@@ -77,7 +77,7 @@ print(df.info())
 years = df['ISSUED_DATE'].dt.year.unique().tolist()
 years.sort(reverse=True)
 print(years)
-selected_year = st.selectbox("选择年份", years, index=0)
+selected_year = st.selectbox("Please choose year", years, index=0)
 if selected_year:
     sql_query = f"""
     SELECT CLIENT_NAME, CLIENT_ADDRESS, INVOICE_NO, TOTAL_AMOUNT, ISSUED_DATE, DUE_DATE, OCR_SCORE, CREATED_AT from documents
@@ -87,7 +87,7 @@ if selected_year:
     current_total_amount = selected_year_df['TOTAL_AMOUNT'].sum()
     current_total_transactions = selected_year_df.shape[0]
     current_average_amount = selected_year_df['TOTAL_AMOUNT'].mean() if current_total_transactions > 0 else 0
-    st.subheader(f"{selected_year} 年度关键指标")
+    st.subheader(f"{selected_year} KPI")
 
     col1, col2, col3 = st.columns(3)
 
@@ -104,15 +104,15 @@ if selected_year:
         amount_delta = (current_total_amount - previous_total_amount) / previous_total_amount
 
     with col1:
-        st.metric(label="总金额",
+        st.metric(label="Total Amount",
               value=f"${current_total_amount:,.2f}",
               delta=f"{amount_delta:.2%}" if amount_delta is not None else None)
 
     with col2:
-        st.metric(label="总笔数", value=f"{current_total_transactions:,}")
+        st.metric(label="Total invoices", value=f"{current_total_transactions:,}")
 
     with col3:
-        st.metric(label="平均金额", value=f"${current_average_amount:,.2f}")
+        st.metric(label="Average Amount per invoice", value=f"${current_average_amount:,.2f}")
 
     # 添加年度总金额趋势图
     # st.subheader("年度总金额趋势")
@@ -124,10 +124,10 @@ if selected_year:
 
 
 # 用户输入
-st.title("🧾 发票自然语言查询")
-question = st.text_input("请输入你的问题（如：哪个客户金额最大？）")
+st.title("🧾 Invoice Query")
+question = st.text_input("Please enter your question (eg: Which customer has the largest amount?)")
 
-if st.button("查询") and question:
+if st.button("ASK") and question:
     # 调用 OpenAI 转换为 SQL
     prompt = f"""
 你是一个SQL专家，帮助将自然语言转成SQL查询。以下是数据库结构：
@@ -151,18 +151,18 @@ DOC_ID 是两表的主外键连接字段。
         df = pd.DataFrame(cursor.fetchall(), columns=[col[0] for col in cursor.description])
         st.dataframe(df)
     except Exception as e:
-        st.error(f"查询失败：{e}")
+        st.error(f"Query failed: {e}")
 
 # 文件上传部分
-st.header("文件上传到 Snowflake Stage")
-uploaded_file = st.file_uploader("选择要上传的文件")
+st.header("Upload File to Snowflake")
+uploaded_file = st.file_uploader("Please choose the file to upload")
 stage_name = "demo_stage"  # st.text_input("Snowflake 阶段名称", "demo_stage")  # 允许用户指定阶段
 # sub_path = st.text_input("阶段子路径 (可选)", "")  # 允许用户指定子路径
 
-if st.button("上传文件") and uploaded_file is not None:
+if st.button("UPLOAD") and uploaded_file is not None:
     # 检查文件是否已上传
     if uploaded_file.size == 0:
-        st.error("上传的文件为空，请选择有效的文件。")
+        st.error("The uploaded file is empty, please select a valid file.")
     else:    
         original_filename = uploaded_file.name
         safe_filename = "".join(c if c.isalnum() or c in ('.', '_', '-') else '_' for c in original_filename)
@@ -170,7 +170,7 @@ if st.button("上传文件") and uploaded_file is not None:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(safe_filename)[1], prefix=os.path.splitext(safe_filename)[0]) as temp_file:
             temp_file.write(uploaded_file.getbuffer())
             temp_file_path = temp_file.name  # 获取临时文件的路径
-            print(f"临时文件路径：{temp_file_path}")
+            print(f"Temp file path: {temp_file_path}")
             # st.info(f"文件已保存到临时路径：{temp_file_path}")  # 显示临时文件路径
 
         if conn:
